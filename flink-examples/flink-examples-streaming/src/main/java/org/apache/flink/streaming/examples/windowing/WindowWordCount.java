@@ -17,12 +17,28 @@
 
 package org.apache.flink.streaming.examples.windowing;
 
-import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.common.functions.RichMapFunction;
+import org.apache.flink.api.common.serialization.SimpleStringSchema;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.utils.ParameterTool;
+import org.apache.flink.contrib.streaming.state.RocksDBStateBackend;
+import org.apache.flink.runtime.state.StateBackend;
+import org.apache.flink.streaming.api.CheckpointingMode;
+import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
+import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.examples.wordcount.WordCount;
+import org.apache.flink.streaming.api.functions.timestamps.AscendingTimestampExtractor;
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer010;
 import org.apache.flink.streaming.examples.wordcount.util.WordCountData;
+import org.apache.flink.table.api.Table;
+import org.apache.flink.table.api.Types;
+import org.apache.flink.table.api.java.StreamTableEnvironment;
+import org.apache.flink.types.Row;
+
+import java.sql.Timestamp;
+import java.util.Properties;
 
 /**
  * Implements a windowed version of the streaming "WordCount" program.
@@ -42,6 +58,19 @@ import org.apache.flink.streaming.examples.wordcount.util.WordCountData;
  */
 public class WindowWordCount {
 
+	public static TypeInformation USER_CLICK_TYPEINFO = Types.ROW(
+		new String[]{"userId", "username", "url", "clickTime","id", "random_id", "date_str", "time_str"},
+		new TypeInformation[]{
+			Types.STRING(),
+			Types.STRING(),
+			Types.STRING(),
+			Types.SQL_TIMESTAMP(),
+			Types.STRING(),
+			Types.STRING(),
+			Types.STRING(),
+			Types.STRING()
+		});
+
 	// *************************************************************************
 	// PROGRAM
 	// *************************************************************************
@@ -52,12 +81,28 @@ public class WindowWordCount {
 
 		// set up the execution environment
 		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+		env.enableCheckpointing(5000);
+		CheckpointConfig checkpointConfig = env.getCheckpointConfig();
+		checkpointConfig.setCheckpointingMode(CheckpointingMode.EXACTLY_ONCE);
+		checkpointConfig.setMinPauseBetweenCheckpoints(500);
+		checkpointConfig.setCheckpointTimeout(1000 * 60);
+		checkpointConfig.setMaxConcurrentCheckpoints(10);
+		checkpointConfig.enableExternalizedCheckpoints(
+			CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
+		env.setStateBackend((StateBackend) new RocksDBStateBackend("hdfs:///tmp/shiy/flink-checkpoints/"));
+
 
 		// get input data
 		DataStream<String> text;
 		if (params.has("input")) {
 			// read the text file from given input path
-			text = env.readTextFile(params.get("input"));
+			Properties properties = new Properties();
+			properties.setProperty("bootstrap.servers", "192.168.2.170:9092");
+			properties.setProperty("group.id", "shiy_topic_1_group_id_2");
+			properties.setProperty("enable.auto.commit", "false");
+			FlinkKafkaConsumer010<String> consumer010 = new FlinkKafkaConsumer010<>("shiy_topic_1", new SimpleStringSchema(), properties);
+			text = env.addSource(consumer010).setParallelism(1);
 		} else {
 			System.out.println("Executing WindowWordCount example with default input data set.");
 			System.out.println("Use --input to specify file input.");
@@ -71,22 +116,44 @@ public class WindowWordCount {
 		final int windowSize = params.getInt("window", 10);
 		final int slideSize = params.getInt("slide", 5);
 
-		DataStream<Tuple2<String, Integer>> counts =
-		// split up the lines in pairs (2-tuples) containing: (word,1)
-		text.flatMap(new WordCount.Tokenizer())
-				// create windows of windowSize records slided every slideSize records
-				.keyBy(0)
-				.countWindow(windowSize, slideSize)
-				// group by the tuple field "0" and sum up tuple field "1"
-				.sum(1);
+		final Row row = new Row(8);
 
-		// emit result
-		if (params.has("output")) {
-			counts.writeAsText(params.get("output"));
-		} else {
-			System.out.println("Printing result to stdout. Use --output to specify output path.");
-			counts.print();
-		}
+		SingleOutputStreamOperator<Row> splitStream = text.map(new RichMapFunction<String, Row>() {
+			@Override
+			public Row map(String value) throws Exception {
+				String[] strings = value.split(",");
+				for (int i = 0; i < strings.length; i++) {
+					if (i == 3) {
+						row.setField(i, Timestamp.valueOf(strings[i]));
+					} else {
+						row.setField(i, strings[i]);
+					}
+				}
+				return row;
+			}
+		}).returns(USER_CLICK_TYPEINFO);
+
+		String tumbleWindowSql = "select username, count(*) as cnt, " +
+			""+
+			"TUMBLE_START(clickTime, INTERVAL '10' SECOND) as window_start, " +
+			"TUMBLE_END(clickTime, INTERVAL '10' SECOND) as window_end " +
+			"from urlclick_table " +
+			"group by username, " +
+			"TUMBLE(clickTime, INTERVAL '10' SECOND)";
+
+		SingleOutputStreamOperator<Row> watermarks = splitStream.assignTimestampsAndWatermarks(new AscendingTimestampExtractor<Row>() {
+			@Override
+			public long extractAscendingTimestamp(Row element) {
+				return Timestamp.valueOf(element.getField(3).toString()).getTime();
+			}
+		});
+
+		StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
+		tEnv.registerDataStream("urlclick_table", watermarks, "userId,username,url,clickTime.rowtime,random_id,date_str,time_str");
+
+		Table table = tEnv.sqlQuery(tumbleWindowSql);
+		DataStream<Row> sinkStream = tEnv.toAppendStream(table, Row.class);
+		sinkStream.print();
 
 		// execute program
 		env.execute("WindowWordCount");
