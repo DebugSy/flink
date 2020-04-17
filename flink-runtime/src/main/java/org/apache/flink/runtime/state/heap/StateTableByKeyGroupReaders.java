@@ -73,7 +73,10 @@ class StateTableByKeyGroupReaders {
 			buffer.f1 = keySerializer.deserialize(in);
 			buffer.f2 = stateSerializer.deserialize(in);
 			return buffer;
-		}, (element, keyGroupId1) -> stateTable.put(element.f1, keyGroupId1, element.f0, element.f2));
+		}, (element, keyGroupId1) -> {
+			System.err.println("state name: " + stateTable.metaInfo.getName() + " echo " + keyGroupId1 + ","+ buffer.f0 + "," + buffer.f1 + "," + buffer.f2);
+			stateTable.put(element.f1, keyGroupId1, element.f0, element.f2);
+		});
 	}
 
 	static final class StateTableByKeyGroupReaderV1<K, N, S> implements StateSnapshotKeyGroupReader {
@@ -103,6 +106,7 @@ class StateTableByKeyGroupReaders {
 				for (int l = 0; l < numEntries; l++) {
 					K key = keySerializer.deserialize(inView);
 					S state = stateSerializer.deserialize(inView);
+					System.err.println("state name: " + stateTable.metaInfo.getName() + " echo " + keyGroupId + ","+ namespace + "," + key + "," + state);
 					stateTable.put(key, keyGroupId, namespace, state);
 				}
 			}

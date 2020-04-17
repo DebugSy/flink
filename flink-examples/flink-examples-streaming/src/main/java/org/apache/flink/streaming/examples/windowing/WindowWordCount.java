@@ -22,6 +22,7 @@ import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.contrib.streaming.state.RocksDBStateBackend;
+import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.TimeCharacteristic;
@@ -58,8 +59,17 @@ import java.util.Properties;
  */
 public class WindowWordCount {
 
-	public static TypeInformation USER_CLICK_TYPEINFO = Types.ROW(
-		new String[]{"userId", "username", "url", "clickTime","id", "random_id", "date_str", "time_str"},
+	public static final TypeInformation USER_CLICK_TYPEINFO = Types.ROW(
+		new String[]{
+			"userId",
+			"username",
+			"url",
+			"clickTime",
+			"id",
+			"random_id",
+			"date_str",
+			"time_str"
+		},
 		new TypeInformation[]{
 			Types.STRING(),
 			Types.STRING(),
@@ -91,7 +101,6 @@ public class WindowWordCount {
 		checkpointConfig.enableExternalizedCheckpoints(
 			CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
 		env.setStateBackend((StateBackend) new RocksDBStateBackend("hdfs:///tmp/shiy/flink-checkpoints/"));
-
 
 		// get input data
 		DataStream<String> text;
@@ -134,12 +143,12 @@ public class WindowWordCount {
 		}).returns(USER_CLICK_TYPEINFO);
 
 		String tumbleWindowSql = "select username, count(*) as cnt, " +
-			""+
-			"TUMBLE_START(clickTime, INTERVAL '10' SECOND) as window_start, " +
-			"TUMBLE_END(clickTime, INTERVAL '10' SECOND) as window_end " +
+			"" +
+			"TUMBLE_START(clickTime, INTERVAL '60' SECOND) as window_start, " +
+			"TUMBLE_END(clickTime, INTERVAL '60' SECOND) as window_end " +
 			"from urlclick_table " +
 			"group by username, " +
-			"TUMBLE(clickTime, INTERVAL '10' SECOND)";
+			"TUMBLE(clickTime, INTERVAL '60' SECOND)";
 
 		SingleOutputStreamOperator<Row> watermarks = splitStream.assignTimestampsAndWatermarks(new AscendingTimestampExtractor<Row>() {
 			@Override
@@ -153,7 +162,7 @@ public class WindowWordCount {
 
 		Table table = tEnv.sqlQuery(tumbleWindowSql);
 		DataStream<Row> sinkStream = tEnv.toAppendStream(table, Row.class);
-		sinkStream.print();
+		sinkStream.writeAsText("hdfs:///tmp/shiy/windows_word_count_out/", FileSystem.WriteMode.OVERWRITE);
 
 		// execute program
 		env.execute("WindowWordCount");

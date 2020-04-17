@@ -82,7 +82,10 @@ public class HeapPriorityQueueSnapshotRestoreWrapper<T extends HeapPriorityQueue
 		final TypeSerializer<T> elementSerializer = metaInfo.getElementSerializer();
 		return KeyGroupPartitioner.createKeyGroupPartitionReader(
 			elementSerializer::deserialize, //we know that this does not deliver nulls, because we never write nulls
-			(element, keyGroupId) -> priorityQueue.add(element));
+			(element, keyGroupId) -> {
+				String snapshotName = metaInfo.snapshot().getName();
+				System.err.println("state name: " + snapshotName + " echo " + keyGroupId + "," + element);
+			});
 	}
 
 	@Nonnull

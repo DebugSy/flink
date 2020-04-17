@@ -50,6 +50,12 @@ under the License.
 			<groupId>com.twitter</groupId>
 			<artifactId>hbc-core</artifactId>
 			<version>${hbc-core.version}</version>
+			<exclusions>
+				<exclusion>
+					<artifactId>guava</artifactId>
+					<groupId>com.google.guava</groupId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 	</dependencies>
 

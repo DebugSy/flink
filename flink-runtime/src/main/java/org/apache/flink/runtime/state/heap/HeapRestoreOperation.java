@@ -232,9 +232,12 @@ public class HeapRestoreOperation<K> implements RestoreOperation<Void> {
 		final StreamCompressionDecorator streamCompressionDecorator = isCompressed ?
 			SnappyStreamCompressionDecorator.INSTANCE : UncompressedStreamCompressionDecorator.INSTANCE;
 
+		System.err.println("[StateTool] - keyGroupRange: "+ keyGroupRange);
 		for (Tuple2<Integer, Long> groupOffset : keyGroupOffsets) {
 			int keyGroupIndex = groupOffset.f0;
 			long offset = groupOffset.f1;
+			System.err.println("[StateTool] - keyGroupIndex: " + keyGroupIndex
+				+ " offset: " + offset);
 
 			// Check that restored key groups all belong to the backend.
 			Preconditions.checkState(keyGroupRange.contains(keyGroupIndex), "The key group must belong to the backend.");
