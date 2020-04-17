@@ -25,7 +25,6 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.jobgraph.JobGraph;
-import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
 import org.apache.flink.runtime.minicluster.MiniCluster;
 import org.apache.flink.runtime.minicluster.MiniClusterConfiguration;
 import org.apache.flink.streaming.api.graph.StreamGraph;
@@ -91,9 +90,6 @@ public class LocalStreamEnvironment extends StreamExecutionEnvironment {
 		streamGraph.setJobName(jobName);
 
 		JobGraph jobGraph = streamGraph.getJobGraph();
-		jobGraph.setSavepointRestoreSettings(SavepointRestoreSettings.forPath(
-			"file:///tmp/flink/checkpints/cb9c92f1cbdd67ed29d66c7f0cf19c15/chk-18",
-			false));
 		jobGraph.setAllowQueuedScheduling(true);
 
 		Configuration configuration = new Configuration();
