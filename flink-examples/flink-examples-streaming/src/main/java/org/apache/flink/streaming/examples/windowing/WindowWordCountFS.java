@@ -111,7 +111,7 @@ public class WindowWordCountFS {
 			// read the text file from given input path
 			Properties properties = new Properties();
 			properties.setProperty("bootstrap.servers", "192.168.2.170:9092");
-			properties.setProperty("group.id", "shiy_topic_final_state_group_id_fs");
+			properties.setProperty("group.id", "shiy_topic_final_state_group_id_fs_remove");
 			properties.setProperty("enable.auto.commit", "false");
 			FlinkKafkaConsumer010<String> consumer010 = new FlinkKafkaConsumer010<>("shiy_topic_final_state", new SimpleStringSchema(), properties);
 			text = env.addSource(consumer010).setParallelism(1);
@@ -178,9 +178,9 @@ public class WindowWordCountFS {
 
 		Table table = tEnv.sqlQuery(tumbleWindowSql);
 		DataStream<Row> sinkStream = tEnv.toAppendStream(table, Row.class);
-		sinkStream.writeAsText("hdfs:///tmp/shiy/windows_word_count_out_fs/", FileSystem.WriteMode.OVERWRITE);
+		sinkStream.writeAsText("hdfs:///tmp/shiy/windows_word_count_out_fs_remove/", FileSystem.WriteMode.OVERWRITE);
 
 		// execute program
-		env.execute("WindowWordCountFileSystem_clear_" + System.currentTimeMillis());
+		env.execute("WindowWordCountFileSystem_remove_" + System.currentTimeMillis());
 	}
 }

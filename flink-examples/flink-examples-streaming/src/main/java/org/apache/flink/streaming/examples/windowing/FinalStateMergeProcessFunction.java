@@ -179,8 +179,8 @@ public class FinalStateMergeProcessFunction extends KeyedProcessFunction<Tuple, 
                 if (finalStates.contains(finalState)) {
                     log.debug("On final state @ {}, registerTime {}, collect row {}", finalState, registerTime, row);
                     out.collect(row);
-                    mapState.clear();
-                    registerTimeState.clear();
+                    mapState.remove(registerTime);
+					registerTimeState.update(Long.MIN_VALUE);
                     timerService.deleteEventTimeTimer(registerTime);
                     mapStateSize--;
                     finalStateCnt++;
@@ -232,9 +232,9 @@ public class FinalStateMergeProcessFunction extends KeyedProcessFunction<Tuple, 
             out.collect(row);
         }
         noFinalStateCnt++;
-        mapState.clear();
-        registerTimeState.clear();
+        mapState.remove(timestamp);
         mapStateSize--;
+        registerTimeState.update(Long.MIN_VALUE);
         timerService.deleteEventTimeTimer(timestamp);
     }
 }
