@@ -44,6 +44,8 @@ import org.apache.flink.runtime.state.UncompressedStreamCompressionDecorator;
 import org.apache.flink.runtime.state.metainfo.StateMetaInfoSnapshot;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StateMigrationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
@@ -61,6 +63,7 @@ import java.util.Map;
  * @param <K> The data type that the serializer serializes.
  */
 public class HeapRestoreOperation<K> implements RestoreOperation<Void> {
+	public static final Logger logger = LoggerFactory.getLogger("Checkpoint-Debugger");
 	private final Collection<KeyedStateHandle> restoreStateHandles;
 	private final StateSerializerProvider<K> keySerializerProvider;
 	private final ClassLoader userCodeClassLoader;
@@ -232,12 +235,11 @@ public class HeapRestoreOperation<K> implements RestoreOperation<Void> {
 		final StreamCompressionDecorator streamCompressionDecorator = isCompressed ?
 			SnappyStreamCompressionDecorator.INSTANCE : UncompressedStreamCompressionDecorator.INSTANCE;
 
-		System.err.println("[StateTool] - keyGroupRange: "+ keyGroupRange);
+		logger.info("[StateTool] - keyGroupRange: {}", keyGroupRange);
 		for (Tuple2<Integer, Long> groupOffset : keyGroupOffsets) {
 			int keyGroupIndex = groupOffset.f0;
 			long offset = groupOffset.f1;
-			System.err.println("[StateTool] - keyGroupIndex: " + keyGroupIndex
-				+ " offset: " + offset);
+			logger.info("[StateTool] - keyGroupIndex: {} offset: {}", keyGroupIndex, offset);
 
 			// Check that restored key groups all belong to the backend.
 			Preconditions.checkState(keyGroupRange.contains(keyGroupIndex), "The key group must belong to the backend.");

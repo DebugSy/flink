@@ -26,6 +26,8 @@ import org.apache.flink.runtime.state.RegisteredPriorityQueueStateBackendMetaInf
 import org.apache.flink.runtime.state.StateSnapshot;
 import org.apache.flink.runtime.state.StateSnapshotKeyGroupReader;
 import org.apache.flink.runtime.state.StateSnapshotRestore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
@@ -37,6 +39,8 @@ import javax.annotation.Nonnull;
  */
 public class HeapPriorityQueueSnapshotRestoreWrapper<T extends HeapPriorityQueueElement>
 	implements StateSnapshotRestore {
+
+	public static final Logger logger = LoggerFactory.getLogger("Checkpoint-Debugger");
 
 	@Nonnull
 	private final HeapPriorityQueueSet<T> priorityQueue;
@@ -84,7 +88,7 @@ public class HeapPriorityQueueSnapshotRestoreWrapper<T extends HeapPriorityQueue
 			elementSerializer::deserialize, //we know that this does not deliver nulls, because we never write nulls
 			(element, keyGroupId) -> {
 				String snapshotName = metaInfo.snapshot().getName();
-				System.err.println("state name: " + snapshotName + " echo " + keyGroupId + "," + element);
+				logger.info("state name: " + snapshotName + " echo " + keyGroupId + "," + element);
 			});
 	}
 

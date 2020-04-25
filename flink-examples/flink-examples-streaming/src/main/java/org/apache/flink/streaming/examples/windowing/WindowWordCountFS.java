@@ -58,7 +58,7 @@ import java.util.Properties;
  * <li>use basic windowing abstractions.
  * </ul>
  */
-public class WindowWordCount {
+public class WindowWordCountFS {
 
 	public static final TypeInformation USER_CLICK_TYPEINFO = Types.ROW(
 		new String[]{
@@ -99,7 +99,7 @@ public class WindowWordCount {
 		CheckpointConfig checkpointConfig = env.getCheckpointConfig();
 		checkpointConfig.setCheckpointingMode(CheckpointingMode.EXACTLY_ONCE);
 		checkpointConfig.setMinPauseBetweenCheckpoints(4000);
-		checkpointConfig.setCheckpointTimeout(1000 * 60);
+		checkpointConfig.setCheckpointTimeout(1000 * 600);
 		checkpointConfig.setMaxConcurrentCheckpoints(1);
 		checkpointConfig.enableExternalizedCheckpoints(
 			CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
@@ -181,6 +181,6 @@ public class WindowWordCount {
 		sinkStream.writeAsText("hdfs:///tmp/shiy/windows_word_count_out/", FileSystem.WriteMode.OVERWRITE);
 
 		// execute program
-		env.execute("WindowWordCountRocksDB_" + System.currentTimeMillis());
+		env.execute("WindowWordCountFileSystem_" + System.currentTimeMillis());
 	}
 }

@@ -23,6 +23,8 @@ import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.runtime.state.KeyGroupPartitioner;
 import org.apache.flink.runtime.state.StateSnapshotKeyGroupReader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
@@ -36,6 +38,8 @@ import java.io.IOException;
  * The implementations are also located here as inner classes.
  */
 class StateTableByKeyGroupReaders {
+
+	public static final Logger logger = LoggerFactory.getLogger("Checkpoint-Debugger");
 
 	/**
 	 * Creates a new StateTableByKeyGroupReader that inserts de-serialized mappings into the given table, using the
@@ -74,7 +78,8 @@ class StateTableByKeyGroupReaders {
 			buffer.f2 = stateSerializer.deserialize(in);
 			return buffer;
 		}, (element, keyGroupId1) -> {
-			System.err.println("state name: " + stateTable.metaInfo.getName() + " echo " + keyGroupId1 + ","+ buffer.f0 + "," + buffer.f1 + "," + buffer.f2);
+			logger.info("state name: {} echo {},{},{},{}",
+				stateTable.metaInfo.getName(), keyGroupId1, buffer.f0, buffer.f1, buffer.f2);
 			stateTable.put(element.f1, keyGroupId1, element.f0, element.f2);
 		});
 	}
@@ -106,7 +111,8 @@ class StateTableByKeyGroupReaders {
 				for (int l = 0; l < numEntries; l++) {
 					K key = keySerializer.deserialize(inView);
 					S state = stateSerializer.deserialize(inView);
-					System.err.println("state name: " + stateTable.metaInfo.getName() + " echo " + keyGroupId + ","+ namespace + "," + key + "," + state);
+					logger.info("state name: {} echo {},{},{},{}",
+						stateTable.metaInfo.getName(), keyGroupId, namespace, key,state);
 					stateTable.put(key, keyGroupId, namespace, state);
 				}
 			}
