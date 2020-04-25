@@ -152,6 +152,7 @@ public class FinalStateMergeProcessFunction extends KeyedProcessFunction<Tuple, 
                 Row row = mapState.get(registerTime);
 				if (row == null || newRow == null) {
 					log.error("row is empty. registerTime is {}.\n{}\n{}", registerTime, row, newRow);
+					return;
 				}
                 log.debug("Merging row :\n{}\n{}", newRow, row);
                 if (newRow.getArity() != row.getArity()) {
@@ -178,7 +179,8 @@ public class FinalStateMergeProcessFunction extends KeyedProcessFunction<Tuple, 
                 if (finalStates.contains(finalState)) {
                     log.debug("On final state @ {}, registerTime {}, collect row {}", finalState, registerTime, row);
                     out.collect(row);
-                    mapState.remove(registerTime);
+                    mapState.clear();
+                    registerTimeState.clear();
                     timerService.deleteEventTimeTimer(registerTime);
                     mapStateSize--;
                     finalStateCnt++;
@@ -230,9 +232,9 @@ public class FinalStateMergeProcessFunction extends KeyedProcessFunction<Tuple, 
             out.collect(row);
         }
         noFinalStateCnt++;
-        mapState.remove(timestamp);
+        mapState.clear();
+        registerTimeState.clear();
         mapStateSize--;
-        registerTimeState.update(Long.MIN_VALUE);
         timerService.deleteEventTimeTimer(timestamp);
     }
 }

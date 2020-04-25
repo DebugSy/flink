@@ -22,9 +22,9 @@ import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.api.java.utils.ParameterTool;
-import org.apache.flink.contrib.streaming.state.RocksDBStateBackend;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.runtime.state.StateBackend;
+import org.apache.flink.runtime.state.filesystem.FsStateBackend;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -103,7 +103,7 @@ public class WindowWordCountFS {
 		checkpointConfig.setMaxConcurrentCheckpoints(1);
 		checkpointConfig.enableExternalizedCheckpoints(
 			CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
-		env.setStateBackend((StateBackend) new RocksDBStateBackend("hdfs:///tmp/shiy/flink-checkpoints/"));
+		env.setStateBackend((StateBackend) new FsStateBackend("hdfs:///tmp/shiy/flink-checkpoints/"));
 
 		// get input data
 		DataStream<String> text;
@@ -111,7 +111,7 @@ public class WindowWordCountFS {
 			// read the text file from given input path
 			Properties properties = new Properties();
 			properties.setProperty("bootstrap.servers", "192.168.2.170:9092");
-			properties.setProperty("group.id", "shiy_topic_final_state_group_id_rocksdb");
+			properties.setProperty("group.id", "shiy_topic_final_state_group_id_fs");
 			properties.setProperty("enable.auto.commit", "false");
 			FlinkKafkaConsumer010<String> consumer010 = new FlinkKafkaConsumer010<>("shiy_topic_final_state", new SimpleStringSchema(), properties);
 			text = env.addSource(consumer010).setParallelism(1);
@@ -178,9 +178,9 @@ public class WindowWordCountFS {
 
 		Table table = tEnv.sqlQuery(tumbleWindowSql);
 		DataStream<Row> sinkStream = tEnv.toAppendStream(table, Row.class);
-		sinkStream.writeAsText("hdfs:///tmp/shiy/windows_word_count_out/", FileSystem.WriteMode.OVERWRITE);
+		sinkStream.writeAsText("hdfs:///tmp/shiy/windows_word_count_out_fs/", FileSystem.WriteMode.OVERWRITE);
 
 		// execute program
-		env.execute("WindowWordCountFileSystem_" + System.currentTimeMillis());
+		env.execute("WindowWordCountFileSystem_clear_" + System.currentTimeMillis());
 	}
 }

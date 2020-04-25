@@ -178,9 +178,9 @@ public class WindowWordCount {
 
 		Table table = tEnv.sqlQuery(tumbleWindowSql);
 		DataStream<Row> sinkStream = tEnv.toAppendStream(table, Row.class);
-		sinkStream.writeAsText("hdfs:///tmp/shiy/windows_word_count_out/", FileSystem.WriteMode.OVERWRITE);
+		sinkStream.writeAsText("hdfs:///tmp/shiy/windows_word_count_out_rocksdb/", FileSystem.WriteMode.OVERWRITE);
 
 		// execute program
-		env.execute("WindowWordCountRocksDB_" + System.currentTimeMillis());
+		env.execute("WindowWordCountRocksDB_clear_" + System.currentTimeMillis());
 	}
 }
