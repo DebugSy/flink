@@ -111,7 +111,7 @@ public class WindowWordCount {
 			// read the text file from given input path
 			Properties properties = new Properties();
 			properties.setProperty("bootstrap.servers", "192.168.2.170:9092");
-			properties.setProperty("group.id", "shiy_topic_final_state_group_id_rocksdb_remove");
+			properties.setProperty("group.id", "shiy_topic_final_state_group_id_rocksdb_sql");
 			properties.setProperty("enable.auto.commit", "false");
 			FlinkKafkaConsumer010<String> consumer010 = new FlinkKafkaConsumer010<>("shiy_topic_final_state", new SimpleStringSchema(), properties);
 			text = env.addSource(consumer010).setParallelism(1);
@@ -145,18 +145,6 @@ public class WindowWordCount {
 			}
 		}).returns(USER_CLICK_TYPEINFO);
 
-		SingleOutputStreamOperator sink = splitStream
-			.keyBy("username")
-			.process(new FinalStateMergeProcessFunction(
-				(RowTypeInfo) USER_CLICK_TYPEINFO,
-				300,
-				false,
-				"final_state",
-				"FINAL_1,FINAL_2",
-				","))
-			.returns(USER_CLICK_TYPEINFO)
-			.name("WaitMergeProcessFunction");
-
 		String tumbleWindowSql = "select username, count(*) as cnt, " +
 			"" +
 			"TUMBLE_START(clickTime, INTERVAL '60' SECOND) as window_start, " +
@@ -165,7 +153,7 @@ public class WindowWordCount {
 			"group by username, " +
 			"TUMBLE(clickTime, INTERVAL '60' SECOND)";
 
-		SingleOutputStreamOperator<Row> watermarks = sink.assignTimestampsAndWatermarks(new AscendingTimestampExtractor<Row>() {
+		SingleOutputStreamOperator<Row> watermarks = splitStream.assignTimestampsAndWatermarks(new AscendingTimestampExtractor<Row>() {
 			@Override
 			public long extractAscendingTimestamp(Row element) {
 				return Timestamp.valueOf(element.getField(3).toString()).getTime();
@@ -178,9 +166,9 @@ public class WindowWordCount {
 
 		Table table = tEnv.sqlQuery(tumbleWindowSql);
 		DataStream<Row> sinkStream = tEnv.toAppendStream(table, Row.class);
-		sinkStream.writeAsText("hdfs:///tmp/shiy/windows_word_count_out_rocksdb_remove/", FileSystem.WriteMode.OVERWRITE);
+		sinkStream.writeAsText("hdfs:///tmp/shiy/windows_word_count_out_rocksdb_sql/", FileSystem.WriteMode.OVERWRITE);
 
 		// execute program
-		env.execute("WindowWordCountRocksDB_remove_" + System.currentTimeMillis());
+		env.execute("WindowWordCountRocksDB_sql_" + System.currentTimeMillis());
 	}
 }
